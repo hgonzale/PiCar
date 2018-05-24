@@ -1,0 +1,127 @@
+# -*- coding: utf-8; mode: tcl; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 4 -*- vim:fenc=utf-8:ft=tcl:et:sw=4:ts=4:sts=4
+
+package require tcltest 2
+package require reclaim 1.0
+namespace import tcltest::*
+
+set pwd [file dirname [file normalize $argv0]]
+
+source ../macports_test_autoconf.tcl
+package require macports 1.0
+
+source ./library.tcl
+
+# clean leftovers from interrupted tests
+file delete -force $pwd/tmpdir
+# use a local, temporary prefix for testing
+init_tmp_prefix $pwd $pwd/tmpdir
+
+array set ui_options {}
+set ui_options(ports_noninteractive) yes
+mportinit ui_options
+
+# reclaim nees to be fixed to honor the noninteractive flag
+test remove_distfiles {
+    Test for distfiles being successfully removed.
+} -constraints {
+    root
+    userInteraction
+} -body {
+    set path [file join ${macports::portdbpath} distfiles]
+    set file [file join $path "test.txt"]
+
+    set fd   [open $file w]
+    close $fd
+    
+    reclaim::remove_distfiles
+
+    if {[file exists $file]} {
+        return "FAIL: Did not remove distfile."
+    }
+
+    return "Successfully removed distfile."
+} -cleanup {
+    file delete -force $file
+} -result "Successfully removed distfile."
+
+test update_last_run {
+    Tests for last_reclaim file being updated.
+} -constraints {
+    root
+} -body {
+    set path     [file join ${macports::portdbpath} last_reclaim]
+
+    set fd          [open $path w]
+    close $fd
+
+    set fd          [open $path r]
+    set old_time    [gets $fd]
+    close $fd
+
+    reclaim::update_last_run
+
+    set fd          [open $path r]
+    set new_time    [gets $fd]
+    close $fd
+
+    if {$new_time == $old_time} {
+        return "FAIL: Did not update to the current time."
+    }
+
+    return "Successfully updated to the correct time."
+
+} -cleanup {
+    set fd  [open $path w]
+    puts $fd $old_time
+    close $fd
+} -result "Successfully updated to the correct time."
+
+
+test walk_files {
+    Tests if walking through the files, and deleting distfiles, ignoring normal files, and removing directory trees works.
+} -constraints {
+    root
+} -body {
+    set path        [file join ${macports::portdbpath} distfiles]
+    set dir         [file join $path tmp_dir]
+    set subdir      [file join $dir other_tmp_dir]
+    set bad_dist    [file join $subdir bad_distfile.txt]
+    set bad_dist2   [file join $dir bad_distfile2.txt]
+    set good_dist   [file join $dir good_distfile.txt]
+    set dist_list   [list]
+    set unused_list [list]
+
+    lappend dist_list $good_dist
+
+    file mkdir $subdir
+
+    set $fd         [open $bad_dist w] 
+    close $fd
+
+    set $fd         [open $bad_dist2 w] 
+    close $fd
+
+    set $fd         [open $good_dist w] 
+    close $fd
+
+    reclaim::walk_files $dir $dist_list unused_list 
+
+    if {[lsearch -exact $unused_list $bad_dist] == -1} {
+        return "FAIL: bad_dist should be deleted"
+    }
+    if {[lsearch -exact $unused_list $bad_dist2] == -1} {
+        return "FAIL: bad_dist2 should be deleted"
+    }
+    if {[lsearch -exact $unused_list $good_dist] != -1} {
+        return "FAIL: good_dist should NOT be deleted"
+    }
+    if {[lsearch -exact $unused_list $dir] != -1} {
+        return "FAIL: good_dist should NOT be deleted"
+    }
+
+    return "Successfully deleted all files that needed to be deleted."
+} -cleanup {
+    file delete -force $dir  
+} -result "Successfully deleted all files that needed to be deleted."
+
+cleanupTests

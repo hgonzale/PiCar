@@ -1,0 +1,22 @@
+PortSystem 1.0
+
+name		dependencies-b
+version		1
+categories	test
+maintainers	pguyot@kallisys.net
+description	Test port for dependencies
+homepage	https://www.macports.org/
+platforms	darwin
+
+long_description ${description}
+
+distfiles
+use_configure no
+build		{}
+destroot	{
+	system "touch ${destroot}${prefix}/lib/${name}"
+}
+
+test {
+# testing consists in processing dependencies
+}

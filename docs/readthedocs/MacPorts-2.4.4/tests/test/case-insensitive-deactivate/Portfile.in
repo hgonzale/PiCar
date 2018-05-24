@@ -1,0 +1,19 @@
+PortSystem 1.0
+
+name		@name@
+version		1
+categories	test
+maintainers	raimue
+description	Test port for case sensitive port uninstalls
+homepage	https://www.macports.org/
+platforms	darwin
+
+long_description ${description}
+
+distfiles
+use_configure no
+build		{}
+destroot	{
+	xinstall -d ${destroot}${prefix}/var/test
+	system "touch ${destroot}${prefix}/var/test/case"
+}
